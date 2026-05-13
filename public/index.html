@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>SD Invoice V11.10 Master Invoice Credit Note Fix</title>
+<title>SD Invoice V11.10.1 Product Customer Invoice Fix</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 body{font-family:Arial;margin:0;background:#eef4fb;color:#07152a}.login{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#12375c;padding:24px}.card{background:#fff;border:1px solid #cbd5e1;border-radius:16px;padding:18px;margin-bottom:16px}.login .card{max-width:760px;width:100%;padding:28px}header{background:#0f3157;color:#fff;padding:16px;display:flex;justify-content:space-between;align-items:center}.wrap{max-width:1500px;margin:auto;padding:18px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.tab,button{border:0;background:#0f3157;color:#fff;padding:10px 14px;border-radius:9px;font-weight:700;cursor:pointer}.tab{background:#dbeafe;color:#111}.tab.on{background:#0f3157;color:#fff}.sec{display:none}.sec.on{display:block}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.sum{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.box{background:#f8fafc;border:1px solid #cbd5e1;border-radius:12px;padding:12px}.box b{display:block;font-size:22px}input,select{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;margin-top:4px}label{font-size:13px;font-weight:700}table{width:100%;border-collapse:collapse}td,th{border:1px solid #cbd5e1;padding:8px;font-size:13px;vertical-align:top}th{background:#eaf1ff}.ok{background:#15803d}.warn{background:#b45309}.bad{background:#b91c1c}.gray{background:#475569}.logo{max-height:58px;max-width:180px;background:#fff;border-radius:8px;padding:3px}.note{background:#fff7ed;border:1px solid #fdba74;color:#9a3412;padding:12px;border-radius:12px;margin-bottom:16px}#app{display:none}@media(max-width:900px){.grid,.sum{grid-template-columns:1fr}header{display:block}}
@@ -11,7 +11,7 @@ body{font-family:Arial;margin:0;background:#eef4fb;color:#07152a}.login{min-heig
 <body>
 <div id="login" class="login">
 <div class="card">
-<h1>SD Invoice V11.10 Master Invoice Credit Note Fix</h1>
+<h1>SD Invoice V11.10.1 Product Customer Invoice Fix</h1>
 <p><b>Super Admin:</b> superadmin / admin123</p>
 <p><b>Demo Client:</b> demo@sdinvoice.com / admin / 1234</p>
 <label>Login Type</label><select id="loginType" onchange="setDefaults()"><option>Super Admin</option><option>Client</option></select>
@@ -34,7 +34,7 @@ body{font-family:Arial;margin:0;background:#eef4fb;color:#07152a}.login{min-heig
 </div>
 
 <div id="app">
-<header><div><img id="topLogo" class="logo" style="display:none"><h2>SD Invoice V11.10 Master Invoice Credit Note Fix</h2></div><button class="bad" onclick="location.reload()">Logout</button></header>
+<header><div><img id="topLogo" class="logo" style="display:none"><h2>SD Invoice V11.10.1 Product Customer Invoice Fix</h2></div><button class="bad" onclick="location.reload()">Logout</button></header>
 <div class="wrap">
 <div class="note"><b>Stable Release:</b> stable full release with professional invoice print/download format.</div>
 <div class="tabs" id="tabs"></div>
@@ -105,8 +105,16 @@ body{font-family:Arial;margin:0;background:#eef4fb;color:#07152a}.login{min-heig
 <div class="grid"><input id="vEmail" placeholder="Email"><input id="vState" placeholder="Bill To State"><input id="vStateCode" placeholder="State Code"><input id="vDue" type="number" value="15"></div>
 <div class="grid"><input id="vAddress" placeholder="Bill To Address"><input id="vShipName" placeholder="Ship To Name"><input id="vShipAddress" placeholder="Ship To Address"><input id="vShipState" placeholder="Ship To State"></div>
 <div class="grid"><input id="vShipStateCode" placeholder="Ship To State Code"><button class="ok" onclick="createCustomer()">Save Customer</button></div></div>
-<div class="card"><h2>Product Master</h2><div class="grid"><input id="pName" placeholder="Product"><input id="pHsn" placeholder="HSN"><input id="pPrice" type="number" placeholder="Price"><input id="pGst" type="number" value="18"></div><button class="ok" onclick="createProduct()">Save Product</button></div>
-<div class="card"><table><tbody id="masterTable"></tbody></table></div>
+<div class="card"><h2>Product Master</h2>
+<div class="grid">
+<input id="pName" placeholder="Product / Service Name">
+<input id="pHsn" placeholder="HSN / SAC">
+<input id="pPrice" type="number" placeholder="Rate">
+<input id="pGst" type="number" placeholder="GST %" value="18">
+</div>
+<button class="ok" onclick="createProduct()">Save Product</button>
+</div>
+<div class="card"><table><tbody id="masterTable"></tbody></table></div><div class="card"><h2>Product List</h2><table><thead><tr><th>Name</th><th>HSN</th><th>Rate</th><th>GST</th></tr></thead><tbody id="productListTable"></tbody></table></div>
 
 <div class="card">
 <h2>Customer Master Help / GST State Code Guide</h2>
@@ -393,8 +401,30 @@ async function createBranch(){
   }catch(e){ alert(e.error||'Branch creation failed'); }
 }
 async function createCustomer(){
- await api('/api/customers',{method:'POST',body:JSON.stringify({name:vName.value,gstin:vGstin.value,pan:vPan.value,phone:vPhone.value,mobile:vPhone.value,email:vEmail.value,state:vState.value,state_code:vStateCode.value,address:vAddress.value,due_days:vDue.value,shipping_name:vShipName.value,shipping_address:vShipAddress.value,shipping_state:vShipState.value,shipping_state_code:vShipStateCode.value})});
- await loadAll();
+  try{
+    const name=(vName.value||'').trim();
+    if(!name){ alert('Please enter customer name'); return; }
+    const payload={
+      name:name,
+      gstin:vGstin.value||'',
+      pan:vPan.value||'',
+      phone:vPhone.value||'',
+      mobile:vPhone.value||'',
+      email:vEmail.value||'',
+      state:vState.value||'',
+      state_code:vStateCode.value||gstStateCode(vGstin.value),
+      address:vAddress.value||'',
+      due_days:vDue.value||15,
+      shipping_name:vShipName.value||name,
+      shipping_address:vShipAddress.value||vAddress.value||'',
+      shipping_state:vShipState.value||vState.value||'',
+      shipping_state_code:vShipStateCode.value||vStateCode.value||gstStateCode(vGstin.value)
+    };
+    const d=await api('/api/customers',{method:'POST',body:JSON.stringify(payload)});
+    alert(d.message||'Customer saved successfully');
+    vName.value='';vGstin.value='';vPan.value='';vPhone.value='';vEmail.value='';vState.value='';vStateCode.value='';vAddress.value='';vShipName.value='';vShipAddress.value='';vShipState.value='';vShipStateCode.value='';
+    await loadAll();
+  }catch(e){ alert(e.error||'Customer save failed'); }
 }
 function editRateContract(id){ const r=rateContracts.find(x=>x.id===id); if(!r)return; rcId.value=r.id; rcCustomer.value=r.customer_id; rcProduct.value=r.product_id||''; rcItem.value=r.item_name; rcHsn.value=r.hsn; rcUom.value=r.uom; rcRate.value=r.approved_rate; rcGst.value=r.gst; rcDiscount.value=r.discount; rcStart.value=r.start_date||''; rcEnd.value=r.end_date||''; rcStatus.value=r.status; rcManual.value=String(r.manual_override||0); rcRemarks.value=r.remarks||''; }
 async function inactiveRateContract(id){ await api('/api/rate-contracts/'+id,{method:'DELETE'}); await loadAll(); }
@@ -489,7 +519,12 @@ async function saveCompiledInvoice(){
         invoice_type:iType.value,
         invoice_date:iDate.value,
         due_date:iDue.value,
+        customer_id:c?.id||null,
         customer_name:c?.name||'',
+        customer_address:c?.address||'',
+        bill_to_address:c?.address||'',
+        ship_to_name:c?.shipping_name||c?.name||'',
+        ship_to_address:c?.shipping_address||c?.address||'',
         total,
         status:'Unpaid',
         items:invoiceItems
@@ -581,6 +616,7 @@ async function loadClientData(){
     if(exists('iCustomer')) iCustomer.innerHTML=customers.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
     if(exists('iProduct')) iProduct.innerHTML=products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
     setHtml('masterTable',`<tr><th>Customers</th><td>${customers.length}</td><th>Products</th><td>${products.length}</td></tr>`);
+    if(exists('productListTable')) productListTable.innerHTML=products.map(p=>`<tr><td>${p.name}</td><td>${p.hsn||''}</td><td>${money(p.price)}</td><td>${p.gst}%</td></tr>`).join('') || '<tr><td colspan="4">No products saved</td></tr>';
 
     if(exists('rcCustomer')) rcCustomer.innerHTML=customers.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
     if(exists('rcProduct')) rcProduct.innerHTML='<option value="">Select Product</option>'+products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
